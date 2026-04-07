@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VoteSecure — Online Voting System</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/*─────────────────────────────────────────
+  DESIGN TOKENS
+─────────────────────────────────────────*/
+:root{
+  --bg:#0b0f1a; --surface:#111624; --card:#19213a;
+  --border:#242f4a; --accent:#4f8ef7; --accent2:#a78bfa;
+  --gold:#f4c842; --danger:#f87171; --success:#34d399;
+  --warn:#fb923c; --text:#e8edf8; --muted:#7a8bad; --r:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(79,142,247,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,247,.035) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;z-index:0;}
+.app{position:relative;z-index:1;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/*─────────────────────────────────────────
+  HEADER
+─────────────────────────────────────────*/
+header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 48px;border-bottom:1px solid var(--border);
+  background:rgba(11,15,26,.92);backdrop-filter:blur(14px);
+  position:sticky;top:0;z-index:200;
+}
+.logo{display:flex;align-items:center;gap:12px;}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.logo-text{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.e-badge{background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.28);color:var(--accent);padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:8px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:none;}
+.btn-sm:hover{border-color:var(--danger);color:var(--danger);}
+
+/*─────────────────────────────────────────
+  VIEWS
+─────────────────────────────────────────*/
+.view{display:none;}.view.active{display:block;}
+
+/*─────────────────────────────────────────
+  LOGIN
+─────────────────────────────────────────*/
+.hero{min-height:calc(100vh - 70px);display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+.login-card{
+  background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:44px 40px;width:100%;max-width:430px;
+  box-shadow:0 28px 70px rgba(0,0,0,.55);animation:fadeUp .5s ease;
+}
+.login-card h1{font-family:'Playfair Display',serif;font-size:28px;font-weight:900;margin-bottom:5px;}
+.login-card>.sub{color:var(--muted);font-size:14px;margin-bottom:28px;}
+.tab-sw{display:flex;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:26px;border:1px solid var(--border);}
+.tab-b{flex:1;padding:8px;border:none;background:transparent;color:var(--muted);font-size:14px;font-weight:500;cursor:pointer;border-radius:7px;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.tab-b.active{background:var(--card);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3);}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+.field input,.field select{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif;transition:border-color .2s;outline:none;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.field select option{background:var(--surface);}
+.btn-p{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity .2s,transform .15s;margin-top:4px;}
+.btn-p:hover{opacity:.86;transform:translateY(-1px);}
+.btn-p:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+.hint{font-size:12px;color:var(--muted);margin-top:12px;text-align:center;line-height:1.6;}
+
+/* privacy notice badge on login */
+.privacy-notice{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.2);
+  border-radius:9px;padding:10px 14px;margin-bottom:20px;
+  font-size:12px;color:var(--success);
+}
+.privacy-notice .lock{font-size:16px;}
+
+/*─────────────────────────────────────────
+  TOAST
+─────────────────────────────────────────*/
+.toast{position:fixed;bottom:24px;right:24px;padding:13px 20px;border-radius:11px;font-size:14px;font-weight:500;transform:translateY(80px);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);z-index:999;max-width:320px;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.success{background:#0a2e1f;border:1px solid var(--success);color:var(--success);}
+.toast.error{background:#2e0a0a;border:1px solid var(--danger);color:var(--danger);}
+.toast.info{background:#0a1530;border:1px solid var(--accent);color:var(--accent);}
+
+/*─────────────────────────────────────────
+  SHARED LAYOUT
+─────────────────────────────────────────*/
+.dash{padding:34px 48px;max-width:1200px;margin:0 auto;}
+.wb{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;}
+.wb h2{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;}
+.wb span.hl{color:var(--accent);}
+.live-pill{background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.28);color:var(--success);padding:5px 13px;border-radius:20px;font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;}
+.live-pill::before{content:'';width:7px;height:7px;background:var(--success);border-radius:50%;animation:pulse 1.5s infinite;}
+.sec-title{font-family:'Playfair Display',serif;font-size:17px;font-weight:700;margin-bottom:15px;display:flex;align-items:center;gap:10px;}
+.sec-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/*─────────────────────────────────────────
+  STATS ROW (voter)
+─────────────────────────────────────────*/
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:26px;}
+.sc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;display:flex;align-items:center;gap:13px;animation:fadeUp .4s ease both;}
+.sc:nth-child(2){animation-delay:.07s}.sc:nth-child(3){animation-delay:.14s}
+.si{width:44px;height:44px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;}
+.si.b{background:rgba(79,142,247,.14)}.si.p{background:rgba(167,139,250,.14)}.si.g{background:rgba(244,200,66,.14)}
+.sv{font-size:23px;font-weight:700;}.sl{font-size:12px;color:var(--muted);margin-top:2px;}
+
+/*─────────────────────────────────────────
+  CANDIDATE CARDS (voter view — NO vote count)
+─────────────────────────────────────────*/
+.cg{display:grid;grid-template-columns:repeat(auto-fill,minmax(275px,1fr));gap:15px;margin-bottom:26px;}
+.cc{
+  background:var(--card);border:2px solid var(--border);border-radius:var(--r);
+  padding:24px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;
+  animation:fadeUp .5s ease both;
+}
+.cc:nth-child(2){animation-delay:.09s}.cc:nth-child(3){animation-delay:.18s}
+.cc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;opacity:0;transition:opacity .25s;}
+.cc.c1::before{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.cc.c2::before{background:linear-gradient(90deg,var(--accent2),#ec4899)}
+.cc.c3::before{background:linear-gradient(90deg,var(--gold),#f97316)}
+.cc.c4::before{background:linear-gradient(90deg,var(--success),var(--accent))}
+.cc.c5::before{background:linear-gradient(90deg,#f87171,#f59e0b)}
+.cc:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 14px 32px rgba(0,0,0,.45);}
+.cc:hover::before,.cc.sel::before{opacity:1;}
+.cc.sel{border-color:var(--accent);background:rgba(79,142,247,.07);}
+.cc.done{cursor:default;border-color:var(--success)!important;background:rgba(52,211,153,.05)!important;}
+.cc.done::before{opacity:1;background:linear-gradient(90deg,var(--success),#10b981)!important;}
+.av{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;margin-bottom:12px;color:#fff;}
+.c1 .av{background:linear-gradient(135deg,#3b82f6,#6366f1)}
+.c2 .av{background:linear-gradient(135deg,#8b5cf6,#ec4899)}
+.c3 .av{background:linear-gradient(135deg,#f59e0b,#ef4444)}
+.c4 .av{background:linear-gradient(135deg,#10b981,#3b82f6)}
+.c5 .av{background:linear-gradient(135deg,#f43f5e,#f97316)}
+.cn{font-size:16px;font-weight:600;margin-bottom:3px;}
+.cp{font-size:13px;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:5px;}
+.cp::before{content:'🏛';font-size:11px;}
+.cm{font-size:12px;color:var(--muted);font-style:italic;margin-bottom:14px;line-height:1.5;}
+/* ── KEY: no vote count shown to voter ── */
+.privacy-bar{
+  background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.15);
+  border-radius:7px;padding:7px 10px;
+  font-size:11px;color:var(--muted);
+  display:flex;align-items:center;gap:6px;margin-bottom:12px;
+}
+.privacy-bar::before{content:'🔒';font-size:12px;}
+.sel-btn{width:100%;padding:9px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.sel-btn:hover{border-color:var(--accent);color:var(--accent);background:rgba(79,142,247,.05);}
+.sel .sel-btn{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* vote action bar */
+.va{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px 26px;display:flex;align-items:center;justify-content:space-between;margin-bottom:30px;}
+.va p{color:var(--muted);font-size:13px;}
+.va strong{color:var(--text);font-size:15px;display:block;margin-bottom:3px;}
+.btn-vote{padding:11px 30px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;white-space:nowrap;flex-shrink:0;}
+.btn-vote:hover{opacity:.84;transform:translateY(-1px);}
+.btn-vote:disabled{opacity:.3;cursor:not-allowed;transform:none;}
+
+/* voted banner */
+.vb-banner{background:rgba(52,211,153,.07);border:1px solid rgba(52,211,153,.28);border-radius:var(--r);padding:16px 22px;display:flex;align-items:center;gap:12px;margin-bottom:26px;}
+.vb-banner .ico{font-size:24px;}
+.vb-banner strong{color:var(--success);font-size:15px;display:block;}
+.vb-banner p{color:var(--muted);font-size:13px;}
+
+/* voter — results hidden notice */
+.results-locked{
+  background:var(--card);border:1px dashed var(--border);border-radius:var(--r);
+  padding:40px;text-align:center;color:var(--muted);
+}
+.results-locked .rl-icon{font-size:40px;margin-bottom:12px;}
+.results-locked h3{font-family:'Playfair Display',serif;font-size:18px;color:var(--text);margin-bottom:8px;}
+.results-locked p{font-size:14px;line-height:1.7;}
+
+/*─────────────────────────────────────────
+  ADMIN PANEL
+─────────────────────────────────────────*/
+.admin-wrap{display:flex;min-height:calc(100vh - 70px);}
+.sidebar{
+  width:215px;flex-shrink:0;background:var(--surface);
+  border-right:1px solid var(--border);padding:24px 14px;
+  position:sticky;top:70px;height:calc(100vh - 70px);overflow-y:auto;
+}
+.sb-label{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:0 10px;margin-bottom:7px;margin-top:20px;}
+.sb-label:first-child{margin-top:0;}
+.ni{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:9px;cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .18s;margin-bottom:2px;border:1px solid transparent;}
+.ni:hover{background:rgba(255,255,255,.04);color:var(--text);}
+.ni.active{background:rgba(79,142,247,.12);color:var(--accent);border-color:rgba(79,142,247,.18);}
+.ni .ico{font-size:15px;}
+.admin-main{flex:1;padding:32px 40px;overflow-y:auto;}
+.adm-sec{display:none;}.adm-sec.active{display:block;}
+
+/* admin stats */
+.a-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:26px;}
+.ast{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:18px;text-align:center;animation:fadeUp .4s ease both;}
+.ast:nth-child(2){animation-delay:.05s}.ast:nth-child(3){animation-delay:.1s}.ast:nth-child(4){animation-delay:.15s}
+.ast .av2{font-size:26px;font-weight:700;}.ast .al{font-size:12px;color:var(--muted);margin-top:3px;}
+
+/* admin result rows */
+.rr{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:9px;display:flex;align-items:center;gap:13px;animation:fadeUp .4s ease both;}
+.rr.win{border-color:var(--gold);background:rgba(244,200,66,.05);}
+.rank{font-size:17px;font-weight:700;width:30px;color:var(--muted);text-align:center;}
+.rr.win .rank{color:var(--gold);}
+.rn{font-weight:600;font-size:14px;}.rp{font-size:12px;color:var(--muted);}
+.rb-wrap{flex:1;}
+.rb-bg{height:8px;background:var(--surface);border-radius:99px;overflow:hidden;}
+.rb{height:100%;border-radius:99px;transition:width 1s ease;width:0%;}
+.rr:nth-child(1) .rb{background:linear-gradient(90deg,var(--gold),#f97316)}
+.rr:nth-child(2) .rb{background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.rr:nth-child(3) .rb{background:linear-gradient(90deg,var(--accent2),#ec4899)}
+.rr:nth-child(4) .rb{background:linear-gradient(90deg,var(--success),var(--accent))}
+.rr:nth-child(5) .rb{background:linear-gradient(90deg,#f87171,#f59e0b)}
+.rv{font-size:20px;font-weight:700;min-width:40px;text-align:right;}
+.rpct{font-size:12px;color:var(--muted);display:block;}
+
+/* tables */
+.dt{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:22px;}
+.th{display:grid;padding:11px 16px;background:var(--surface);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--border);}
+.tr{display:grid;padding:12px 16px;font-size:14px;border-bottom:1px solid var(--border);align-items:center;transition:background .15s;}
+.tr:last-child{border-bottom:none;}
+.tr:hover{background:rgba(255,255,255,.02);}
+.v-cols{grid-template-columns:80px 1fr 1fr 90px 80px;}
+.c-cols{grid-template-columns:44px 1fr 1fr 60px 90px;}
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.bv{background:rgba(52,211,153,.15);color:var(--success);}
+.bp{background:rgba(122,139,173,.1);color:var(--muted);}
+.btn-del{background:transparent;border:1px solid rgba(248,113,113,.3);color:var(--danger);padding:4px 9px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.btn-del:hover{background:rgba(248,113,113,.1);}
+
+/* add forms */
+.afc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:26px 30px;margin-bottom:26px;animation:fadeUp .4s ease;}
+.afc h3{font-family:'Playfair Display',serif;font-size:17px;margin-bottom:18px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.fg .field{margin-bottom:0;}
+.fg .full{grid-column:1/-1;}
+.btn-add{margin-top:16px;padding:11px 24px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:9px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s;display:inline-flex;align-items:center;gap:7px;}
+.btn-add:hover{opacity:.84;transform:translateY(-1px);}
+.empty{text-align:center;padding:36px;color:var(--muted);font-size:14px;}
+.empty .ei{font-size:32px;margin-bottom:8px;}
+
+/* admin-only warning chip */
+.admin-only-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(244,200,66,.1);border:1px solid rgba(244,200,66,.25);
+  color:var(--gold);padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;
+  margin-left:10px;vertical-align:middle;
+}
+
+/* loader spinner */
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;}
+
+/* responsive */
+@media(max-width:900px){
+  .a-stats{grid-template-columns:repeat(2,1fr);}
+  .v-cols{grid-template-columns:70px 1fr 80px 80px;}
+  .v-cols span:nth-child(3){display:none;}
+  .c-cols{grid-template-columns:36px 1fr 60px 80px;}
+  .c-cols span:nth-child(3){display:none;}
+  .fg{grid-template-columns:1fr;}
+  .fg .full{grid-column:1;}
+}
+@media(max-width:680px){
+  header{padding:14px 16px;}
+  .dash,.admin-main{padding:20px 16px;}
+  .admin-wrap{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:static;display:flex;flex-wrap:wrap;gap:4px;padding:12px;}
+  .sb-label{display:none;}
+  .stats-row{grid-template-columns:1fr;}
+  .va{flex-direction:column;gap:12px;align-items:flex-start;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!--═══════════════ HEADER ═══════════════-->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🗳</div>
+    <span class="logo-text">VoteSecure</span>
+  </div>
+  <div class="hdr-right">
+    <span class="e-badge">📋 Student Council 2026</span>
+    <button class="btn-sm" id="logoutBtn" onclick="logout()">Logout</button>
+  </div>
+</header>
+
+<!--═══════════════ LOGIN ═══════════════-->
+<div class="view active" id="vLogin">
+  <div class="hero">
+    <div class="login-card">
+      <h1>Cast Your Vote</h1>
+      <p class="sub">Secure, private and transparent digital voting.</p>
+
+      <div class="tab-sw">
+        <button class="tab-b active" id="tVoter" onclick="switchTab('voter')">Voter Login</button>
+        <button class="tab-b" id="tAdmin" onclick="switchTab('admin')">Admin</button>
+      </div>
+
+      <!-- Voter login -->
+      <div id="fVoter">
+        <div class="privacy-notice">
+          <span class="lock">🔒</span>
+          Your vote is private. Results are only visible to the Admin.
+        </div>
+        <div class="field"><label>Voter ID</label><input type="text" id="lId" placeholder="e.g. V001"/></div>
+        <div class="field"><label>Password</label><input type="password" id="lPass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')voterLogin()"/></div>
+        <button class="btn-p" onclick="voterLogin()">Login &amp; Vote →</button>
+        <p class="hint">Demo accounts: V001/pass123 · V002/abc456 · V003/xyz789</p>
+      </div>
+
+      <!-- Admin login -->
+      <div id="fAdmin" style="display:none">
+        <div class="field"><label>Username</label><input type="text" id="aUser" placeholder="admin"/></div>
+        <div class="field"><label>Password</label><input type="password" id="aPass" placeholder="••••••" onkeydown="if(event.key==='Enter')adminLogin()"/></div>
+        <button class="btn-p" onclick="adminLogin()">Admin Login →</button>
+        <p class="hint">Demo: admin / admin123</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--═══════════════ VOTER DASHBOARD ═══════════════-->
+<div class="view" id="vVoter">
+  <div class="dash">
+
+    <div class="wb">
+      <h2>Welcome, <span class="hl" id="voterName">Voter</span></h2>
+      <div class="live-pill">Election Live</div>
+    </div>
+
+    <!-- Stats — voter sees candidates count & timer only, NO vote totals -->
+    <div class="stats-row">
+      <div class="sc">
+        <div class="si b">🏛</div>
+        <div><div class="sv" id="vCandCount">0</div><div class="sl">Candidates Running</div></div>
+      </div>
+      <div class="sc">
+        <div class="si p">👥</div>
+        <div><div class="sv" id="vVoterCount">0</div><div class="sl">Registered Voters</div></div>
+      </div>
+      <div class="sc">
+        <div class="si g">⏱</div>
+        <div><div class="sv" id="timerDisp">05:00</div><div class="sl">Time Remaining</div></div>
+      </div>
+    </div>
+
+    <!-- Voted banner -->
+    <div class="vb-banner" id="votedBanner" style="display:none">
+      <div class="ico">✅</div>
+      <div>
+        <strong>Vote Recorded Successfully!</strong>
+        <p>Your vote has been securely cast and stored in the database.</p>
+      </div>
+    </div>
+
+    <!-- Candidate cards -->
+    <div class="sec-title">Choose Your Candidate</div>
+    <div class="cg" id="voterCandGrid"></div>
+
+    <!-- Vote action bar -->
+    <div class="va" id="voteAction">
+      <div>
+        <strong id="selInfo">No candidate selected</strong>
+        <p>Select a candidate above, then confirm your vote.</p>
+      </div>
+      <button class="btn-vote" id="castBtn" disabled onclick="castVote()">🗳 Cast Vote</button>
+    </div>
+
+    <!-- Results LOCKED for voters -->
+    <div class="sec-title">
+      Election Results
+      <span class="admin-only-chip">🔒 Admin Only</span>
+    </div>
+    <div class="results-locked">
+      <div class="rl-icon">🔒</div>
+      <h3>Results are Private</h3>
+      <p>
+        Vote counts and standings are <strong>hidden from voters</strong> to ensure a fair election.<br/>
+        Results will be announced by the admin after the election closes.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!--═══════════════ ADMIN PANEL ═══════════════-->
+<div class="view" id="vAdmin">
+  <div class="admin-wrap">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sb-label">Overview</div>
+      <div class="ni active" data-s="overview"  onclick="adminNav('overview',this)"><span class="ico">📊</span>Dashboard</div>
+      <div class="sb-label">Manage</div>
+      <div class="ni" data-s="addVoter"    onclick="adminNav('addVoter',this)"><span class="ico">➕</span>Add Voter</div>
+      <div class="ni" data-s="addCand"     onclick="adminNav('addCand',this)"><span class="ico">🎯</span>Add Candidate</div>
+      <div class="sb-label">View</div>
+      <div class="ni" data-s="voterList"   onclick="adminNav('voterList',this)"><span class="ico">👥</span>Voter List</div>
+      <div class="ni" data-s="candList"    onclick="adminNav('candList',this)"><span class="ico">🏛</span>Candidate List</div>
+      <div class="ni" data-s="results"     onclick="adminNav('results',this)"><span class="ico">🏆</span>Live Results</div>
+    </div>
+
+    <!-- Main area -->
+    <div class="admin-main">
+
+      <!-- OVERVIEW -->
+      <div class="adm-sec active" id="s-overview">
+        <div class="wb" style="margin-bottom:20px">
+          <h2>Admin <span class="hl">Dashboard</span></h2>
+          <div class="live-pill">Election Live</div>
+        </div>
+        <div class="a-stats">
+          <div class="ast"><div class="av2" id="aVotes">0</div><div class="al">Total Votes</div></div>
+          <div class="ast"><div class="av2" id="aTurnout">0%</div><div class="al">Turnout</div></div>
+          <div class="ast"><div class="av2" id="aCands">0</div><div class="al">Candidates</div></div>
+          <div class="ast"><div class="av2" id="aVoters">0</div><div class="al">Registered Voters</div></div>
+        </div>
+        <div class="sec-title">Live Standings <span class="admin-only-chip">🔒 Admin Only</span></div>
+        <div id="oResults"></div>
+      </div>
+
+      <!-- ADD VOTER -->
+      <div class="adm-sec" id="s-addVoter">
+        <div class="wb" style="margin-bottom:20px"><h2>Add <span class="hl">New Voter</span></h2></div>
+        <div class="afc">
+          <h3>➕ Register a New Voter</h3>
+          <div class="fg">
+            <div class="field"><label>Voter ID</label><input type="text" id="nv-id" placeholder="e.g. V006"/></div>
+            <div class="field"><label>Full Name</label><input type="text" id="nv-name" placeholder="e.g. Ravi Sharma"/></div>
+            <div class="field"><label>Email</label><input type="email" id="nv-email" placeholder="voter@college.edu"/></div>
+            <div class="field"><label>Password</label><input type="text" id="nv-pass" placeholder="Login password"/></div>
+          </div>
+          <button class="btn-add" onclick="addVoter()">➕ Register Voter</button>
+        </div>
+        <div class="sec-title">All Registered Voters</div>
+        <div class="dt">
+          <div class="th v-cols"><span>ID</span><span>Name</span><span>Email</span><span>Password</span><span>Status</span></div>
+          <div id="avList"></div>
+        </div>
+      </div>
+
+      <!-- ADD CANDIDATE -->
+      <div class="adm-sec" id="s-addCand">
+        <div class="wb" style="margin-bottom:20px"><h2>Add <span class="hl">New Candidate</span></h2></div>
+        <div class="afc">
+          <h3>🎯 Register a New Candidate</h3>
+          <div class="fg">
+            <div class="field"><label>Full Name</label><input type="text" id="nc-name" placeholder="e.g. Nisha Patel"/></div>
+            <div class="field"><label>Party / Alliance</label><input type="text" id="nc-party" placeholder="e.g. Youth Alliance"/></div>
+            <div class="field full"><label>Motto / Slogan (optional)</label><input type="text" id="nc-motto" placeholder="e.g. Change starts with us"/></div>
+          </div>
+          <button class="btn-add" onclick="addCandidate()">➕ Add Candidate</button>
+        </div>
+        <div class="sec-title">Current Candidates</div>
+        <div class="dt">
+          <div class="th c-cols"><span>#</span><span>Name</span><span>Party</span><span>Votes</span><span>Action</span></div>
+          <div id="acList"></div>
+        </div>
+      </div>
+
+      <!-- VOTER LIST -->
+      <div class="adm-sec" id="s-voterList">
+        <div class="wb" style="margin-bottom:20px"><h2>Voter <span class="hl">Registry</span></h2></div>
+        <div class="dt">
+          <div class="th v-cols"><span>ID</span><span>Name</span><span>Email</span><span>Password</span><span>Status</span></div>
+          <div id="vlList"></div>
+        </div>
+      </div>
+
+      <!-- CANDIDATE LIST -->
+      <div class="adm-sec" id="s-candList">
+        <div class="wb" style="margin-bottom:20px"><h2>Candidate <span class="hl">Registry</span></h2></div>
+        <div class="dt">
+          <div class="th c-cols"><span>#</span><span>Name</span><span>Party</span><span>Votes</span><span>Action</span></div>
+          <div id="clList"></div>
+        </div>
+      </div>
+
+      <!-- LIVE RESULTS (admin only) -->
+      <div class="adm-sec" id="s-results">
+        <div class="wb" style="margin-bottom:20px">
+          <h2>Live <span class="hl">Results</span> <span class="admin-only-chip">🔒 Admin Only</span></h2>
+        </div>
+        <div id="lrResults"></div>
+      </div>
+
+    </div><!-- /admin-main -->
+  </div>
+</div>
+
+</div><!-- /app -->
+<div class="toast" id="toast"></div>
+
+<script>
+/*══════════════════════════════════════════════════════════════
+  DATABASE SIMULATION
+  In production: replace DB object methods with fetch() calls
+  to your Java Servlet/Spring Boot REST API which queries MySQL.
+
+  Each method maps to a SQL operation:
+    DB.getVoter(id)         → SELECT * FROM voters WHERE voter_id=?
+    DB.getCandidates()      → SELECT candidate_id,name,party,motto FROM candidates (NO vote_count for voters)
+    DB.getResultsAdmin()    → SELECT * FROM vw_results  (admin only)
+    DB.getVoterStatus()     → SELECT * FROM vw_voter_status
+    DB.castVote(...)        → CALL sp_cast_vote(?,?,?,?)
+    DB.addVoter(...)        → CALL sp_register_voter(?,?,?,?,?)
+    DB.addCandidate(...)    → CALL sp_add_candidate(?,?,?,?)
+    DB.deleteVoter(id)      → DELETE FROM voters WHERE voter_id=? AND has_voted=FALSE
+    DB.deleteCandidate(id)  → DELETE FROM candidates WHERE candidate_id=? AND vote_count=0
+══════════════════════════════════════════════════════════════*/
+const DB = (() => {
+  // In-memory "database" — mirrors SQL tables
+  const voters = {
+    "V001":{ name:"Amit Kumar",  email:"amit@college.edu",  password:"pass123", has_voted:false, voted_for:null },
+    "V002":{ name:"Sneha Gupta", email:"sneha@college.edu", password:"abc456",  has_voted:false, voted_for:null },
+    "V003":{ name:"Rohan Das",   email:"rohan@college.edu", password:"xyz789",  has_voted:false, voted_for:null },
+    "V004":{ name:"Pooja Singh", email:"pooja@college.edu", password:"qwerty",  has_voted:false, voted_for:null },
+    "V005":{ name:"Kiran Nair",  email:"kiran@college.edu", password:"kiran99", has_voted:false, voted_for:null },
+  };
+
+  let candidates = [
+    { candidate_id:1, name:"Arjun Sharma", party:"Progress Party", motto:"Building a better tomorrow", vote_count:0 },
+    { candidate_id:2, name:"Priya Mehta",  party:"Unity Front",    motto:"Together we rise",           vote_count:0 },
+    { candidate_id:3, name:"Rahul Verma",  party:"Students First", motto:"Your voice, our mission",    vote_count:0 },
+  ];
+  let nextId = 4;
+
+  return {
+    // ── Voter auth (mirrors Voter.authenticate()) ──
+    getVoter(id){ return voters[id] || null; },
+    authenticate(id, pw){
+      const v = voters[id];
+      return v && v.password === pw;
+    },
+
+    // ── Candidates list — NO vote_count (safe for voter view) ──
+    getCandidates(){ return candidates.map(c=>({...c})); },
+
+    // ── Results with vote_count — Admin only ──
+    // Maps to: SELECT * FROM vw_results ORDER BY vote_count DESC
+    getResultsAdmin(){
+      return [...candidates].sort((a,b)=>b.vote_count-a.vote_count);
+    },
+
+    // ── Cast vote — maps to sp_cast_vote ──
+    castVote(voterId, pw, candId){
+      const v = voters[voterId];
+      if(!v)                     return { ok:false, msg:'Voter not found.' };
+      if(v.password !== pw)      return { ok:false, msg:'Authentication failed.' };
+      if(v.has_voted)            return { ok:false, msg:'You have already voted!' };
+      const c = candidates.find(c=>c.candidate_id===candId);
+      if(!c)                     return { ok:false, msg:'Candidate not found.' };
+      // DB: INSERT INTO votes; UPDATE candidates; UPDATE voters
+      c.vote_count++;
+      v.has_voted = true;
+      v.voted_for = candId;
+      return { ok:true, msg:'SUCCESS' };
+    },
+
+    // ── Voter status list (admin) — maps to vw_voter_status ──
+    getVoterStatus(){
+      return Object.entries(voters).map(([id,v])=>({
+        voter_id: id, name:v.name, email:v.email,
+        password: v.password,
+        has_voted: v.has_voted,
+        voted_for_candidate: v.voted_for
+          ? (candidates.find(c=>c.candidate_id===v.voted_for)||{}).name || '—'
+          : '—'
+      }));
+    },
+
+    // ── Admin: register voter — maps to sp_register_voter ──
+    registerVoter(id, name, email, pw){
+      if(voters[id])   return { ok:false, msg:`Voter ID "${id}" already exists.` };
+      if(!id||!name||!email||!pw) return { ok:false, msg:'All fields required.' };
+      if(!/^[A-Z]\d+$/.test(id)) return { ok:false, msg:'ID format: V006, V007 etc.' };
+      voters[id] = { name, email, password:pw, has_voted:false, voted_for:null };
+      return { ok:true };
+    },
+
+    // ── Admin: add candidate — maps to sp_add_candidate ──
+    addCandidate(name, party, motto){
+      if(!name||!party) return { ok:false, msg:'Name and Party required.' };
+      candidates.push({ candidate_id:nextId++, name, party, motto:motto||'—', vote_count:0 });
+      return { ok:true };
+    },
+
+    // ── Admin: delete voter (no voted voters) ──
+    deleteVoter(id){
+      if(voters[id].has_voted) return { ok:false, msg:'Cannot remove a voter who has voted.' };
+      delete voters[id]; return { ok:true };
+    },
+
+    // ── Admin: delete candidate (0 votes only) ──
+    deleteCandidate(id){
+      const c = candidates.find(c=>c.candidate_id===id);
+      if(!c)          return { ok:false, msg:'Not found.' };
+      if(c.vote_count>0) return { ok:false, msg:'Cannot remove candidate with votes.' };
+      candidates = candidates.filter(c=>c.candidate_id!==id);
+      return { ok:true };
+    },
+
+    counts(){
+      return {
+        totalVotes: candidates.reduce((s,c)=>s+c.vote_count,0),
+        voters: Object.keys(voters).length,
+        votedCount: Object.values(voters).filter(v=>v.has_voted).length,
+        candidates: candidates.length,
+      };
+    }
+  };
+})();
+
+/*══════════════════════════════════════════════════════════════
+  STATE
+══════════════════════════════════════════════════════════════*/
+let currentVoter  = null;  // voter id string
+let selectedCand  = null;  // candidate_id number
+let timerIv       = null;
+let secsLeft      = 300;
+let activeSec     = 'overview';
+
+const avatarCls = ['c1','c2','c3','c4','c5'];
+const acls  = id => avatarCls[(id-1) % avatarCls.length];
+const inits = n  => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+/*══════════════════════════════════════════════════════════════
+  UTILS
+══════════════════════════════════════════════════════════════*/
+function showView(id){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+function toast(msg, type='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`toast ${type}`;
+  clearTimeout(el._t1); clearTimeout(el._t2);
+  el._t1=setTimeout(()=>el.classList.add('show'),10);
+  el._t2=setTimeout(()=>el.classList.remove('show'),3600);
+}
+function totalVotes(){ return DB.counts().totalVotes; }
+
+/*══════════════════════════════════════════════════════════════
+  AUTH
+══════════════════════════════════════════════════════════════*/
+function switchTab(t){
+  document.getElementById('tVoter').classList.toggle('active',t==='voter');
+  document.getElementById('tAdmin').classList.toggle('active',t==='admin');
+  document.getElementById('fVoter').style.display=t==='voter'?'block':'none';
+  document.getElementById('fAdmin').style.display=t==='admin'?'block':'none';
+}
+
+function voterLogin(){
+  const id=document.getElementById('lId').value.trim().toUpperCase();
+  const pw=document.getElementById('lPass').value;
+  const voter=DB.getVoter(id);
+  if(!voter)               return toast('Voter ID not found.','error');
+  if(voter.password!==pw)  return toast('Incorrect password.','error');
+  currentVoter=id; selectedCand=null;
+  document.getElementById('logoutBtn').style.display='block';
+  showView('vVoter');
+  renderVoterDash();
+  startTimer();
+  toast(`Welcome, ${voter.name}! 🎉`,'success');
+}
+
+function adminLogin(){
+  const u=document.getElementById('aUser').value.trim();
+  const p=document.getElementById('aPass').value;
+  if(u!=='admin'||p!=='admin123') return toast('Invalid admin credentials.','error');
+  document.getElementById('logoutBtn').style.display='block';
+  showView('vAdmin');
+  adminNav('overview', document.querySelector('[data-s="overview"]'));
+  toast('Admin access granted. 🔐','success');
+}
+
+function logout(){
+  if(timerIv){clearInterval(timerIv);timerIv=null;}
+  currentVoter=null; selectedCand=null; secsLeft=300;
+  document.getElementById('logoutBtn').style.display='none';
+  document.getElementById('lId').value='';
+  document.getElementById('lPass').value='';
+  showView('vLogin');
+  toast('Logged out.','info');
+}
+
+/*══════════════════════════════════════════════════════════════
+  TIMER
+══════════════════════════════════════════════════════════════*/
+function startTimer(){
+  secsLeft=300;
+  if(timerIv) clearInterval(timerIv);
+  timerIv=setInterval(()=>{
+    secsLeft--;
+    const m=String(Math.floor(secsLeft/60)).padStart(2,'0');
+    const s=String(secsLeft%60).padStart(2,'0');
+    const el=document.getElementById('timerDisp');
+    if(el) el.textContent=`${m}:${s}`;
+    if(secsLeft<=0){ clearInterval(timerIv); toast('⏰ Voting session expired!','info'); }
+  },1000);
+}
+
+/*══════════════════════════════════════════════════════════════
+  VOTER DASHBOARD
+  KEY: only shows candidate name/party/motto — NO vote counts
+══════════════════════════════════════════════════════════════*/
+function renderVoterDash(){
+  const voter = DB.getVoter(currentVoter);
+  const cands = DB.getCandidates();            // safe — no vote_count shown
+  const {voters, candidates} = DB.counts();
+
+  document.getElementById('voterName').textContent   = voter.name.split(' ')[0];
+  document.getElementById('vCandCount').textContent  = candidates;
+  document.getElementById('vVoterCount').textContent = voters;
+  document.getElementById('votedBanner').style.display = voter.has_voted ? 'flex':'none';
+
+  // Candidate grid
+  const grid = document.getElementById('voterCandGrid');
+  grid.innerHTML = '';
+  cands.forEach(c=>{
+    const isSel = selectedCand === c.candidate_id;
+    const div   = document.createElement('div');
+    div.className = `cc ${acls(c.candidate_id)} ${isSel?'sel':''} ${voter.has_voted?'done':''}`;
+    div.innerHTML = `
+      <div class="av">${inits(c.name)}</div>
+      <div class="cn">${c.name}</div>
+      <div class="cp">${c.party}</div>
+      <div class="cm">"${c.motto}"</div>
+      <!-- 🔒 No vote count shown to voters (results private until admin reveals) -->
+      <div class="privacy-bar">Results hidden until election closes</div>
+      ${!voter.has_voted
+        ? `<button class="sel-btn" onclick="selectCand(${c.candidate_id},event)">${isSel?'✓ Selected':'Select Candidate'}</button>`
+        : `<div style="margin-top:10px;font-size:13px;color:var(--success);font-weight:500;">✓ You have voted</div>`
+      }
+    `;
+    grid.appendChild(div);
+  });
+
+  // Vote bar
+  const btn = document.getElementById('castBtn');
+  btn.disabled = !selectedCand || voter.has_voted;
+  document.getElementById('selInfo').textContent =
+    selectedCand
+      ? `Selected: ${cands.find(c=>c.candidate_id===selectedCand).name}`
+      : voter.has_voted ? 'You have already voted.' : 'No candidate selected';
+}
+
+function selectCand(id, e){
+  e.stopPropagation();
+  if(DB.getVoter(currentVoter).has_voted) return;
+  selectedCand = selectedCand===id ? null : id;
+  renderVoterDash();
+}
+
+function castVote(){
+  if(!selectedCand) return;
+  const voter = DB.getVoter(currentVoter);
+  if(voter.has_voted) return toast('You have already voted!','error');
+
+  // Maps to: CALL sp_cast_vote in MySQL
+  const res = DB.castVote(currentVoter, voter.password, selectedCand);
+  if(res.ok){
+    const cName = DB.getCandidates().find(c=>c.candidate_id===selectedCand)?.name || '';
+    toast(`✅ Vote cast for ${cName}!`,'success');
+    selectedCand = null;
+    renderVoterDash();
+  } else {
+    toast(res.msg,'error');
+  }
+}
+
+/*══════════════════════════════════════════════════════════════
+  ADMIN NAVIGATION
+══════════════════════════════════════════════════════════════*/
+function adminNav(sec, el){
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.adm-sec').forEach(s=>s.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.getElementById(`s-${sec}`).classList.add('active');
+  activeSec = sec;
+  renderAdminSec(sec);
+}
+function renderAdminSec(sec){
+  if(sec==='overview')   renderOverview();
+  if(sec==='addVoter')   renderVoterTbl('avList');
+  if(sec==='addCand')    renderCandTbl('acList');
+  if(sec==='voterList')  renderVoterTbl('vlList');
+  if(sec==='candList')   renderCandTbl('clList');
+  if(sec==='results')    renderResults('lrResults');
+}
+
+/*── Admin: Overview ──────────────────────────────────────────*/
+function renderOverview(){
+  const {totalVotes, voters, votedCount, candidates} = DB.counts();
+  const turnout = voters ? Math.round((votedCount/voters)*100) : 0;
+  document.getElementById('aVotes').textContent   = totalVotes;
+  document.getElementById('aTurnout').textContent = turnout+'%';
+  document.getElementById('aCands').textContent   = candidates;
+  document.getElementById('aVoters').textContent  = voters;
+  renderResults('oResults');
+}
+
+/*── Admin: Results (with vote counts + bars) ─────────────────
+  Maps to: SELECT * FROM vw_results   (ADMIN ONLY)
+──────────────────────────────────────────────────────────────*/
+function renderResults(cid){
+  const tot = totalVotes();
+  const sorted = DB.getResultsAdmin();  // includes vote_count — admin only
+  const el = document.getElementById(cid); el.innerHTML='';
+  if(!sorted.length){
+    el.innerHTML='<div class="empty"><div class="ei">🏆</div>No candidates yet.</div>'; return;
+  }
+  sorted.forEach((c,i)=>{
+    const pct = tot>0 ? Math.round((c.vote_count/tot)*100) : 0;
+    const win = i===0 && c.vote_count>0;
+    const div = document.createElement('div');
+    div.className=`rr ${win?'win':''}`;
+    div.style.animationDelay=(i*.07)+'s';
+    div.innerHTML=`
+      <div class="rank">${win?'👑':i+1}</div>
+      <div><div class="rn">${c.name}</div><div class="rp">${c.party}</div></div>
+      <div class="rb-wrap">
+        <div class="rb-bg"><div class="rb" id="${cid}-rb-${c.candidate_id}" style="width:0%"></div></div>
+      </div>
+      <div class="rv">${c.vote_count}<span class="rpct">${pct}%</span></div>
+    `;
+    el.appendChild(div);
+    setTimeout(()=>{ const b=document.getElementById(`${cid}-rb-${c.candidate_id}`); if(b)b.style.width=pct+'%'; },150+i*110);
+  });
+}
+
+/*── Admin: Voter Table ───────────────────────────────────────
+  Maps to: SELECT * FROM vw_voter_status
+──────────────────────────────────────────────────────────────*/
+function renderVoterTbl(cid){
+  const el=document.getElementById(cid); el.innerHTML='';
+  const list=DB.getVoterStatus();
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">👤</div>No voters yet.</div>'; return; }
+  list.forEach(v=>{
+    const row=document.createElement('div');
+    row.className='tr v-cols';
+    row.innerHTML=`
+      <span style="font-weight:600;color:var(--accent)">${v.voter_id}</span>
+      <span>${v.name}</span>
+      <span style="color:var(--muted);font-size:13px">${v.email}</span>
+      <span style="color:var(--muted);font-size:13px;font-family:monospace">${v.password}</span>
+      <span style="display:flex;align-items:center;gap:6px">
+        <span class="badge ${v.has_voted?'bv':'bp'}">${v.has_voted?'Voted':'Pending'}</span>
+        ${!v.has_voted?`<button class="btn-del" onclick="delVoter('${v.voter_id}')">✕</button>`:''}
+      </span>
+    `;
+    el.appendChild(row);
+  });
+}
+
+/*── Admin: Candidate Table ───────────────────────────────────
+  Maps to: SELECT * FROM candidates (admin can see vote_count)
+──────────────────────────────────────────────────────────────*/
+function renderCandTbl(cid){
+  const el=document.getElementById(cid); el.innerHTML='';
+  const list=DB.getCandidates();
+  if(!list.length){ el.innerHTML='<div class="empty"><div class="ei">🏛</div>No candidates yet.</div>'; return; }
+  list.forEach((c,i)=>{
+    const row=document.createElement('div');
+    row.className='tr c-cols';
+    row.innerHTML=`
+      <span style="color:var(--muted)">${i+1}</span>
+      <span style="font-weight:600">${c.name}</span>
+      <span style="color:var(--muted);font-size:13px">${c.party}</span>
+      <span style="font-weight:700;color:var(--accent)">${c.vote_count}</span>
+      <span>${c.vote_count===0
+        ?`<button class="btn-del" onclick="delCand(${c.candidate_id})">✕ Remove</button>`
+        :`<span style="font-size:12px;color:var(--success)">✓ Active</span>`
+      }</span>
+    `;
+    el.appendChild(row);
+  });
+}
+
+/*══════════════════════════════════════════════════════════════
+  ADMIN ACTIONS (mirror Java Admin class methods)
+══════════════════════════════════════════════════════════════*/
+
+// Admin.registerVoter() → sp_register_voter
+function addVoter(){
+  const id   = document.getElementById('nv-id').value.trim().toUpperCase();
+  const name = document.getElementById('nv-name').value.trim();
+  const email= document.getElementById('nv-email').value.trim();
+  const pw   = document.getElementById('nv-pass').value.trim();
+  const res  = DB.registerVoter(id, name, email, pw);
+  if(!res.ok) return toast(res.msg,'error');
+  ['nv-id','nv-name','nv-email','nv-pass'].forEach(f=>document.getElementById(f).value='');
+  renderVoterTbl('avList');
+  toast(`✅ Voter "${name}" (${id}) registered!`,'success');
+}
+
+// Admin.addCandidate() → sp_add_candidate
+function addCandidate(){
+  const name  = document.getElementById('nc-name').value.trim();
+  const party = document.getElementById('nc-party').value.trim();
+  const motto = document.getElementById('nc-motto').value.trim();
+  const res   = DB.addCandidate(name, party, motto);
+  if(!res.ok) return toast(res.msg,'error');
+  ['nc-name','nc-party','nc-motto'].forEach(f=>document.getElementById(f).value='');
+  renderCandTbl('acList');
+  toast(`🎯 Candidate "${name}" added!`,'success');
+}
+
+// Admin.remove() — voter
+function delVoter(id){
+  if(!confirm(`Remove voter ${id}?`)) return;
+  const res = DB.deleteVoter(id);
+  if(!res.ok) return toast(res.msg,'error');
+  renderAdminSec(activeSec);
+  toast(`Voter ${id} removed.`,'info');
+}
+
+// Admin.remove() — candidate
+function delCand(id){
+  const c = DB.getCandidates().find(c=>c.candidate_id===id);
+  if(!confirm(`Remove candidate "${c?.name}"?`)) return;
+  const res = DB.deleteCandidate(id);
+  if(!res.ok) return toast(res.msg,'error');
+  renderAdminSec(activeSec);
+  toast('Candidate removed.','info');
+}
+</script>
+</body>
+</html>
